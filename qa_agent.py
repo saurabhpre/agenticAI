@@ -1,6 +1,6 @@
 import openai
 from basic_agent import BasicAgent
-
+import os
 
 class QAAgent(BasicAgent):
     def __init__(self, name: str, model: str = "gpt-4"):
@@ -17,12 +17,12 @@ class QAAgent(BasicAgent):
             {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {question}"}
         ]
 
+        client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         try:
-            response = openai.ChatCompletion.create(
+            response = client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                temperature=0.3,
-                max_tokens=300,
+                temperature=0.7,
             )
             return response.choices[0].message.content.strip()
         except Exception as e:

@@ -40,38 +40,41 @@ if __name__ == "__main__":
 
 
     if uploaded_file is not None:
-        # Get file extension from uploaded file name
-        file_ext = Path(uploaded_file.name).suffix
-        if uploaded_file.name.endswith(".nii.gz"):
-            file_ext = ".nii.gz"  # handle double extension correctly
+        if "context_memory" not in st.session_state:
+            st.session_state.context_memory = ContextMemory()
 
-        # Create temp file with correct extension
-        with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as tmp_file:
-            tmp_file.write(uploaded_file.read())
-            tmp_path = Path(tmp_file.name)
+        if "tmp_file_path" not in st.session_state:
+            
+            # Get file extension from uploaded file name
+            file_ext = Path(uploaded_file.name).suffix
+            if uploaded_file.name.endswith(".nii.gz"):
+                file_ext = ".nii.gz"  # handle double extension correctly
 
-        st.success("MRI uploaded successfully. "+ str(tmp_path))
-        image = sitk.ReadImage(tmp_path)
-        data = sitk.GetArrayFromImage(image)
-        display_image(data)
+            # Create temp file with correct extension
+            with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as tmp_file:
+                tmp_file.write(uploaded_file.read())
+                tmp_path = Path(tmp_file.name)
+                st.session_state["tmp_file_path"] = str(tmp_path)
+
+                st.success("MRI uploaded successfully. "+ str(tmp_path))
+                image = sitk.ReadImage(tmp_path)
+                data = sitk.GetArrayFromImage(image)
+                display_image(data)
 
 
-        context_memory = ContextMemory()
-        # Initialize agents
-        mri_agent = MRIReaderAgent()
-        mri_agent.register_tool('segment_and_volume',run_foundation)
+            # Initialize agents
+            mri_agent = MRIReaderAgent()
+            mri_agent.register_tool('segment_and_volume',run_foundation)
 
-        # Run MRI and summary agents once
-        mri_findings = mri_agent.run(tmp_path)
-        context_memory.add("MRIReader", "Findings", mri_findings)
-        #summary = summary_agent.run(mri_findings)
+            # Run MRI and summary agents once
+            mri_findings, prompt = mri_agent.run(tmp_path)
+            st.session_state.context_memory.add("MRIReader", "Findings", mri_findings)
+            st.session_state.context_memory.add("MRIReader", "Prompt", prompt)
+            #summary = summary_agent.run(mri_findings)
 
-        # Display outputs
-        st.subheader("📝 MRI Findings")
-        st.write(mri_findings)
-
-        #st.subheader("📄 Summary Report")
-        #st.write(summary)
+            # Display outputs
+            st.subheader("📝 MRI Findings")
+            st.write(mri_findings)
 
         # QA loop
         st.subheader("❓ Ask Questions about the MRI")
@@ -81,7 +84,7 @@ if __name__ == "__main__":
 
         question = st.text_input("Ask a question:")
         if st.button("Submit") and question:
-            answer = st.session_state.qa_agent.run(question=question, context=context_memory.get_context())
+            answer = st.session_state.qa_agent.run(question=question, context=st.session_state.context_memory.get_context())
             st.session_state.qa_history.append((question, answer))
 
         if st.session_state.qa_history:
@@ -89,6 +92,6 @@ if __name__ == "__main__":
             for q, a in reversed(st.session_state.qa_history):
                 st.markdown(f"**Q:** {q}")
                 st.markdown(f"**A:** {a}")
-    else:
-        st.info("Please upload an MRI file to begin.")
+        else:
+            st.info("Please upload an MRI file to begin.")
 

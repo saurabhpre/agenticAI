@@ -2,6 +2,7 @@ import os
 import sys
 import SimpleITK as sitk
 import numpy as np
+import pandas as pd
 import torch
 from transformers import ViTImageProcessor 
 from train_sequence import ViTWithFC 
@@ -31,9 +32,11 @@ def run_foundation(mri_path, series, task):
     if foundation_path not in sys.path:
         sys.path.insert(0, foundation_path)
     os.chdir(foundation_path+'/fm_mediumweight/ml/')
+    output_dir = foundation_path+'/fm_mediumweight/ml/' + 'output_masks'
     from fm_mediumweight.ml.pipeline import run_segmentation_pipeline
-    run_segmentation_pipeline(subj, series, task, dicom_dir="dicom_data_dir", nifti_dir=foundation_path +"/nifti_data_dir", output_dir="output_masks")
+    run_segmentation_pipeline(subj, series, task, dicom_dir="dicom_data_dir", nifti_dir=foundation_path +"/nifti_data_dir", output_dir=output_dir)
     os.chdir(original_dir)
+    return output_dir+'/brain/'+subj+'_'+series+'.csv'
 
 
 class MRIReaderAgent(BasicAgent):
@@ -62,10 +65,53 @@ class MRIReaderAgent(BasicAgent):
         print(f"[{self.name}] Reading MRI from {mri_path}...")
         # Placeholder for MRI analysis
         series = self.perceive(mri_path)
-        self.tools['segment_and_volume'](mri_path, series, self.planning(series))
+        output_dir = self.tools['segment_and_volume'](mri_path, series, self.planning(series))
         findings = "Detected moderate brain atrophy and white matter lesions."
-        return findings
+        findings, prompt = self.__summary_report(output_dir)
+        return findings, prompt
 
+    def __summary_report(self, output_dir):
+        def generate_prompt():    
+            prompt = f"""
+        You are provided with subject-level measurements for brain regions compared to population statistics.
+
+        Your task:
+        - For each region, state whether the subject is "above", "below", or "within normal range" (±1 SD)
+        - Highlight any potential trends across the regions
+        - Write a short narrative summary
+
+        Please respond in clear, structured language.
+        """
+            return prompt
+        
+        prompt = generate_prompt()
+        merged_df = self.__add_population(output_dir)
+        findings = merged_df.to_markdown(index=False)
+        """
+        response = client.chat.completions.create(
+            model="gpt-4",
+            messages=[{"role": "user", "content": prompt}]
+        )
+        findings = response.choices[0].message.content
+        """
+        return findings, prompt
+
+    def __add_population(self, output_dir):
+        df = pd.read_csv("models/population.csv")
+        mean = df.mean(numeric_only=True).rename(lambda x: f"{x}")
+        std = df.std(numeric_only=True).rename(lambda x: f"{x}")
+        df1 = mean.to_frame(name='population_mean')
+        df2 = std.to_frame(name='population_std')
+        merged = df1.join(df2)
+        subject = pd.read_csv(output_dir)
+        #----
+        subject['Label'] = subject['Label'].apply(lambda x: x[0] if isinstance(x, list) else x)
+        merged.index = merged.index.map(lambda x: x[0] if isinstance(x, list) else x)
+        subject = subject.set_index('Label')
+        merged['subject_value'] = subject['Volume (mm³)']
+        #----
+        merged.columns = ['population_mean', 'population_std', 'subject_value']
+        return merged
     def __infer_series(self, dicom_path):
         def preprocess_data(dicom_path):
             image_processor = ViTImageProcessor.from_pretrained("google/vit-base-patch16-224")
