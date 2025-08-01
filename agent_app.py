@@ -5,6 +5,7 @@ import tempfile
 from pathlib import Path
 from mri_agent import MRIReaderAgent, run_foundation
 from qa_agent import QAAgent
+from websearch_agent import WebSearchAgent
 from basic_agent import ContextMemory
 import numpy as np
 import SimpleITK as sitk
@@ -35,16 +36,12 @@ def display_image(data):
 if __name__ == "__main__":
     st.title("🧠 MRI Question Answering Agent")
     st.markdown("This app uses simulated agents to analyze an MRI scan, generate a report, and answer your questions.")
-
     uploaded_file = st.file_uploader("Upload a brain MRI scan (.nii.gz or .dcm)", type=["gz", "dcm"])
-
-
     if uploaded_file is not None:
         if "context_memory" not in st.session_state:
             st.session_state.context_memory = ContextMemory()
 
         if "tmp_file_path" not in st.session_state:
-            
             # Get file extension from uploaded file name
             file_ext = Path(uploaded_file.name).suffix
             if uploaded_file.name.endswith(".nii.gz"):
@@ -55,7 +52,7 @@ if __name__ == "__main__":
                 tmp_file.write(uploaded_file.read())
                 tmp_path = Path(tmp_file.name)
                 st.session_state["tmp_file_path"] = str(tmp_path)
-
+            
                 st.success("MRI uploaded successfully. "+ str(tmp_path))
                 image = sitk.ReadImage(tmp_path)
                 data = sitk.GetArrayFromImage(image)
@@ -85,6 +82,9 @@ if __name__ == "__main__":
         question = st.text_input("Ask a question:")
         if st.button("Submit") and question:
             answer = st.session_state.qa_agent.run(question=question, context=st.session_state.context_memory.get_context())
+            if answer is None or "not include" in answer:
+                web_agent = WebSearchAgent(use_serpapi=False)
+                answer = web_agent.search(question)
             st.session_state.qa_history.append((question, answer))
 
         if st.session_state.qa_history:

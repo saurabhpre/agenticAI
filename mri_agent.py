@@ -86,7 +86,7 @@ class MRIReaderAgent(BasicAgent):
         
         prompt = generate_prompt()
         merged_df = self.__add_population(output_dir)
-        findings = merged_df.to_markdown(index=False)
+        findings = merged_df.to_markdown(index=True)
         """
         response = client.chat.completions.create(
             model="gpt-4",
@@ -111,6 +111,7 @@ class MRIReaderAgent(BasicAgent):
         merged['subject_value'] = subject['Volume (mm³)']
         #----
         merged.columns = ['population_mean', 'population_std', 'subject_value']
+        merged.index = subject.index
         return merged
     def __infer_series(self, dicom_path):
         def preprocess_data(dicom_path):

@@ -1,9 +1,9 @@
 from serpapi import GoogleSearch
-from duckduckgo_search import DDGS  # lightweight alternative
+from ddgs import DDGS
 import os
 
 class WebSearchAgent:
-    def __init__(self, use_serpapi=True):
+    def __init__(self, use_serpapi=False):
         self.use_serpapi = use_serpapi
         self.serpapi_key = os.environ.get("SERPAPI_API_KEY")  # Set your key in env
         if use_serpapi and not self.serpapi_key:
@@ -43,12 +43,15 @@ class WebSearchAgent:
     def format_results(self, results):
         formatted = ""
         for i, r in enumerate(results):
-            formatted += f"{i+1}. {r['title']}\n{r['snippet']}\n{r['link']}\n\n"
+            title = r.get("title", "")
+            body = r.get("body", "")     # DuckDuckGo snippet
+            link = r.get("href", "")     # DuckDuckGo link
+            formatted += f"{i+1}. {title}\n{body}\n{link}\n\n"
         return formatted.strip()
 
 # Example usage
 if __name__ == "__main__":
-    agent = WebSearchAgent(use_serpapi=True)
+    agent = WebSearchAgent(use_serpapi=False)
     query = "latest research on pancreatic cyst classification using AI"
     results = agent.search(query)
     print(agent.format_results(results))
