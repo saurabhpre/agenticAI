@@ -82,7 +82,7 @@ if __name__ == "__main__":
         question = st.text_input("Ask a question:")
         if st.button("Submit") and question:
             answer = st.session_state.qa_agent.run(question=question, context=st.session_state.context_memory.get_context())
-            if answer is None or "not include" in answer:
+            if answer is None or "not" in answer:
                 web_agent = WebSearchAgent(use_serpapi=False)
                 answer = web_agent.search(question)
             st.session_state.qa_history.append((question, answer))

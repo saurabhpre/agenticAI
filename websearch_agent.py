@@ -38,7 +38,7 @@ class WebSearchAgent:
 
     def _search_ddg(self, query, num_results):
         with DDGS() as ddgs:
-            return list(ddgs.text(query, region='wt-wt', safesearch='Off', max_results=num_results))
+            return list(ddgs.text(query, region='us-en', safesearch='Off', max_results=num_results))
 
     def format_results(self, results):
         formatted = ""

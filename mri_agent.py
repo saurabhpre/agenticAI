@@ -46,9 +46,15 @@ class MRIReaderAgent(BasicAgent):
         print(f"it looks like this is {series} MR series")
         return series[0]
 
-    def planning(self, input_data):
+    def planning(self, series):
         # plan which tasks to run in foundation model
-        task='brain'
+        task='organs'
+        if series == "sag_t1_mprage":
+            task='brain'
+        elif(series == "ax_t2_blade_ctm_chest_abdomen_pelvis"):
+            task='organs'
+        elif(series=="ax_t1_oop"):
+            task='vertebrae'
         return task
 
     def register_tool(self, name, function):
